@@ -15,9 +15,10 @@ module RedisMasterSlave
     # +master+ and +slave+ may be URL strings, Redis client option
     # hashes, or Redis clients.
     #
-    def initialize(master, slave)
+    def initialize(master, *slaves)
       @master = make_client(master)
-      @slave = make_client(slave)
+      @slaves = slaves.map{|slave| make_client(slave)}
+      @index  = 0
     end
 
     #
@@ -28,7 +29,21 @@ module RedisMasterSlave
     #
     # The slave client.
     #
-    attr_accessor :slave
+    attr_accessor :slaves
+
+    #
+    # Index of the slave to use for the next read.
+    #
+    attr_accessor :index
+
+    #
+    # Return the next read slave to use.
+    #
+    def next_slave
+      slave = slaves[index]
+      @index = (index + 1) % slaves.size
+      slave
+    end
 
     class << self
       private
@@ -36,7 +51,7 @@ module RedisMasterSlave
       def send_to_slave(command)
         class_eval <<-EOS
           def #{command}(*args, &block)
-            @slave.#{command}(*args, &block)
+            next_slave.#{command}(*args, &block)
           end
         EOS
       end
