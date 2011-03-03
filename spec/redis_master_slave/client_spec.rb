@@ -2,8 +2,15 @@ require 'spec/spec_helper'
 
 describe RedisMasterSlave do
   describe "#initialize" do
+    it "should accept a single configuration hash" do
+      client = RedisMasterSlave::Client.new('redis://localhost:6479', ['redis://localhost:6480'])
+      mc, scs = client.master.client, client.slaves.map{|s| s.client}
+      [mc.host, mc.port].should == ['localhost', 6479]
+      scs.map{|sc| [sc.host, sc.port]}.should == [['localhost', 6480]]
+    end
+
     it "should accept URI strings" do
-      client = RedisMasterSlave::Client.new('redis://localhost:6479', 'redis://localhost:6480')
+      client = RedisMasterSlave::Client.new('redis://localhost:6479', ['redis://localhost:6480'])
       mc, scs = client.master.client, client.slaves.map{|s| s.client}
       [mc.host, mc.port].should == ['localhost', 6479]
       scs.map{|sc| [sc.host, sc.port]}.should == [['localhost', 6480]]
@@ -11,7 +18,7 @@ describe RedisMasterSlave do
 
     it "should accept Redis configuration hashes" do
       client = RedisMasterSlave::Client.new({:host => 'localhost', :port => 6479},
-                                            {:host => 'localhost', :port => 6480})
+                                            [{:host => 'localhost', :port => 6480}])
       mc, scs = client.master.client, client.slaves.map{|s| s.client}
       [mc.host, mc.port].should == ['localhost', 6479]
       scs.map{|sc| [sc.host, sc.port]}.should == [['localhost', 6480]]
@@ -20,7 +27,7 @@ describe RedisMasterSlave do
     it "should accept Redis client objects" do
       master = Redis.new(:host => 'localhost', :port => 6479)
       slave  = Redis.new(:host => 'localhost', :port => 6480)
-      client = RedisMasterSlave::Client.new(master, slave)
+      client = RedisMasterSlave::Client.new(master, [slave])
       client.master.should equal(master)
       client.slaves.size.should == 1
       client.slaves.first.should equal(slave)
@@ -30,7 +37,7 @@ describe RedisMasterSlave do
       master = Redis.new(:host => 'localhost', :port => 6479)
       slave0 = Redis.new(:host => 'localhost', :port => 6480)
       slave1 = Redis.new(:host => 'localhost', :port => 6481)
-      client = RedisMasterSlave::Client.new(master, slave0, slave1)
+      client = RedisMasterSlave::Client.new(master, [slave0, slave1])
       client.master.should equal(master)
       client.slaves.size.should == 2
       client.slaves[0].should equal(slave0)
@@ -38,14 +45,14 @@ describe RedisMasterSlave do
     end
 
     it "should set index to 0" do
-      client = RedisMasterSlave::Client.new('redis://localhost:6479', 'redis://localhost:6480')
+      client = RedisMasterSlave::Client.new('redis://localhost:6479', ['redis://localhost:6480'])
       client.index.should == 0
     end
   end
 
   describe "read operations" do
     before do
-      @client = RedisMasterSlave::Client.new(master, slave0, slave1)
+      @client = RedisMasterSlave::Client.new(master, [slave0, slave1])
     end
 
     it "should go to each slave, round-robin" do
@@ -65,7 +72,7 @@ describe RedisMasterSlave do
       master = Redis.new(:host => 'localhost', :port => 6479)
       slave0 = Redis.new(:host => 'localhost', :port => 6480)
       slave1 = Redis.new(:host => 'localhost', :port => 6481)
-      @client = RedisMasterSlave::Client.new(master, slave0, slave1)
+      @client = RedisMasterSlave::Client.new(master, [slave0, slave1])
     end
 
     it "should hit the master" do

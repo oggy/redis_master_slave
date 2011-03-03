@@ -15,9 +15,21 @@ module RedisMasterSlave
     # +master+ and +slave+ may be URL strings, Redis client option
     # hashes, or Redis clients.
     #
-    def initialize(master, *slaves)
-      @master = make_client(master)
-      @slaves = slaves.map{|slave| make_client(slave)}
+    def initialize(*args)
+      case args.size
+      when 1
+        config = args.first
+
+        master_config = config['master'] || config[:master]
+        slave_configs = config['slaves'] || config[:slaves]
+      when 2
+        master_config, slave_configs = *args
+      else
+        raise ArgumentError, "wrong number of arguments (#{args.size} for 1..2)"
+      end
+
+      @master = make_client(master_config)
+      @slaves = slave_configs.map{|config| make_client(config)}
       @index  = 0
     end
 
