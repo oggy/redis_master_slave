@@ -48,37 +48,44 @@ describe RedisMasterSlave do
       client = RedisMasterSlave::Client.new('redis://localhost:6479', ['redis://localhost:6480'])
       client.index.should == 0
     end
+
+    it "should not have a master connection if no master configuration is given" do
+      client = RedisMasterSlave::Client.new(nil, ['redis://localhost:6480'])
+      client.master.should be_nil
+    end
   end
 
   describe "read operations" do
-    before do
-      @client = RedisMasterSlave::Client.new(master, [slave0, slave1])
-    end
-
     it "should go to each slave, round-robin" do
-      slave0.slaveof 'no', 'one'
-      slave1.slaveof 'no', 'one'
+      client = RedisMasterSlave::Client.new(master, [slave0, slave1])
       master.set 'a', 'am'
       slave0.set 'a', 'a0'
       slave1.set 'a', 'a1'
-      @client.get('a').should == 'a0'
-      @client.get('a').should == 'a1'
-      @client.get('a').should == 'a0'
+      client.get('a').should == 'a0'
+      client.get('a').should == 'a1'
+      client.get('a').should == 'a0'
+    end
+
+    it "should work for read-only clients" do
+      client = RedisMasterSlave::Client.new(nil, [slave0])
+      slave0.set 'a', '1'
+      client.get('a').should == '1'
     end
   end
 
   describe "other operations" do
-    before do
-      master = Redis.new(:host => 'localhost', :port => 6479)
-      slave0 = Redis.new(:host => 'localhost', :port => 6480)
-      slave1 = Redis.new(:host => 'localhost', :port => 6481)
-      @client = RedisMasterSlave::Client.new(master, [slave0, slave1])
+    it "should hit the master" do
+      client = RedisMasterSlave::Client.new(master, [slave0, slave1])
+      client.set 'a', 'z'
+      client.master.get('a').should == 'z'
+      client.slaves.map{|s| s.get('a')}.should == [nil, nil]
     end
 
-    it "should hit the master" do
-      @client.set 'a', 'z'
-      @client.master.get('a').should == 'z'
-      @client.slaves.map{|s| s.get('a')}.should == [nil, nil]
+    it "should raise a ReadOnlyError for read-only clients" do
+      client = RedisMasterSlave::Client.new(nil, [slave0])
+      lambda do
+        client.set 'a', '1'
+      end.should raise_error(RedisMasterSlave::ReadOnlyError)
     end
   end
 end

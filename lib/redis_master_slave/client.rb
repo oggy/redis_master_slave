@@ -28,7 +28,8 @@ module RedisMasterSlave
         raise ArgumentError, "wrong number of arguments (#{args.size} for 1..2)"
       end
 
-      @master = make_client(master_config)
+      @master = make_client(master_config) or
+        extend ReadOnly
       @slaves = slave_configs.map{|config| make_client(config)}
       @index  = 0
     end
@@ -73,7 +74,7 @@ module RedisMasterSlave
       def send_to_master(command)
         class_eval <<-EOS
           def #{command}(*args, &block)
-            @master.#{command}(*args, &block)
+            writable_master.#{command}(*args, &block)
           end
         EOS
       end
@@ -118,7 +119,7 @@ module RedisMasterSlave
 
     # Send everything else to master.
     def method_missing(name, *args, &block) # :nodoc:
-      if master.respond_to?(name)
+      if writable_master.respond_to?(name)
         Client.send(:send_to_master, name)
         send(name, *args, &block)
       else
@@ -146,5 +147,7 @@ module RedisMasterSlave
         config
       end
     end
+
+    alias writable_master master
   end
 end
