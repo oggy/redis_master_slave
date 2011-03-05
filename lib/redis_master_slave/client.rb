@@ -51,6 +51,8 @@ module RedisMasterSlave
     #
     # Return the next read slave to use.
     #
+    # Each call returns the following slave in sequence.
+    #
     def next_slave
       slave = slaves[index]
       @index = (index + 1) % slaves.size
