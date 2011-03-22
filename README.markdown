@@ -68,7 +68,7 @@ You can also pass your own Redis client objects:
     master = Redis.new(:host => 'localhost', :port => 6379)
     slave1 = Redis.new(:host => 'localhost', :port => 6380)
     slave2 = Redis.new(:host => 'localhost', :port => 6381)
-    client = RedisMasterSlave.new(master, slave1, slave2)
+    client = RedisMasterSlave.new(master, [slave1, slave2])
 
 ## Contributing
 
