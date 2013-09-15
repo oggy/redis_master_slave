@@ -103,7 +103,6 @@ module RedisMasterSlave
     send_to_slave :sinter
     send_to_slave :sismember
     send_to_slave :smembers
-    send_to_slave :sort
     send_to_slave :srandmember
     send_to_slave :strlen
     send_to_slave :sunion
